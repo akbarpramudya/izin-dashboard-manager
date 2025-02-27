@@ -90,6 +90,28 @@ export function generateQRCode(data: string): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data)}`;
 }
 
+// Function to get notification color based on type
+export function getNotificationColor(type: 'info' | 'success' | 'warning' | 'error'): string {
+  switch (type) {
+    case "info":
+      return "bg-blue-100 text-blue-800 border-blue-200";
+    case "success":
+      return "bg-green-100 text-green-800 border-green-200";
+    case "warning":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "error":
+      return "bg-red-100 text-red-800 border-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-200";
+  }
+}
+
+// Modified toast removal delay (5000ms = 5 seconds instead of 1000000ms)
+export function updateToastSettings() {
+  const TOAST_REMOVE_DELAY = 5000; // 5 seconds is more reasonable
+  return TOAST_REMOVE_DELAY;
+}
+
 // Function to get current user (mock)
 let currentUser = {
   id: "user-1",

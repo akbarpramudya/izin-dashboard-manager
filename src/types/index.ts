@@ -51,3 +51,14 @@ export interface UserStats {
   rejectedPermissions: number;
   completedPermissions: number;
 }
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  relatedId?: string; // Could be a permissionId, userId, etc.
+}
