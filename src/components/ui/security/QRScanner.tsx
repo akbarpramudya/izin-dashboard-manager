@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import { QrReader } from 'react-qr-reader';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -15,54 +16,58 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
   const [permissionData, setPermissionData] = useState<Permission | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isCheckIn, setIsCheckIn] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   
-  // Mock scanning functionality
-  const handleStartScan = () => {
-    setIsScanning(true);
-    
-    // In a real app, this would use a QR code scanning library
-    // For this mock, we'll simulate finding a code after a delay
-    setTimeout(() => {
-      const mockPermissionId = 'permission-1'; // This would come from the QR scan
-      handleScanResult(mockPermissionId);
-    }, 2000);
+  // Handle QR code scan result
+  const handleScan = (result: any) => {
+    if (result && !permissionData) {
+      const permissionId = result?.text;
+      if (permissionId) {
+        // Get permission data
+        const permission = getPermissionById(permissionId);
+        
+        if (!permission) {
+          toast({
+            title: 'Invalid QR Code',
+            description: 'The scanned QR code is not valid.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        if (permission.status !== 'approved' && permission.status !== 'completed') {
+          toast({
+            title: 'Permission Not Approved',
+            description: 'This permission has not been approved yet.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        setPermissionData(permission);
+        setIsScanning(false);
+        
+        // Determine if this is check-in or check-out
+        if (permission.checkInTime && !permission.checkOutTime) {
+          setIsCheckIn(false);
+        } else {
+          setIsCheckIn(true);
+        }
+      }
+    }
   };
   
-  const handleScanResult = (permissionId: string) => {
+  const handleError = (error: any) => {
+    toast({
+      title: 'Scan Error',
+      description: error?.message || 'An error occurred while scanning',
+      variant: 'destructive',
+    });
     setIsScanning(false);
-    
-    // Get permission data
-    const permission = getPermissionById(permissionId);
-    
-    if (!permission) {
-      toast({
-        title: 'Invalid QR Code',
-        description: 'The scanned QR code is not valid.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    if (permission.status !== 'approved' && permission.status !== 'completed') {
-      toast({
-        title: 'Permission Not Approved',
-        description: 'This permission has not been approved yet.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    setPermissionData(permission);
-    
-    // Determine if this is check-in or check-out
-    // If the permission already has a checkInTime but no checkOutTime, it's a check-out
-    if (permission.checkInTime && !permission.checkOutTime) {
-      setIsCheckIn(false);
-    } else {
-      setIsCheckIn(true);
-    }
+  };
+  
+  const handleStartScan = () => {
+    setIsScanning(true);
   };
   
   const handleConfirm = () => {
@@ -75,53 +80,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
   const handleCancel = () => {
     setPermissionData(null);
   };
-  
-  // Mock camera access
-  useEffect(() => {
-    if (isScanning && videoRef.current) {
-      // In a real app, we would access the camera here
-      // For this mock, we'll just display a placeholder
-      const ctx = (videoRef.current as any).getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(0, 0, 300, 300);
-        ctx.fillStyle = '#333';
-        ctx.font = '14px Arial';
-        ctx.fillText('Camera preview would appear here', 70, 150);
-        
-        // Draw scanning animation
-        let y = 0;
-        let direction = 1;
-        
-        const animate = () => {
-          if (!isScanning) return;
-          
-          ctx.clearRect(0, 0, 300, 300);
-          ctx.fillStyle = '#f0f0f0';
-          ctx.fillRect(0, 0, 300, 300);
-          ctx.fillStyle = '#333';
-          ctx.font = '14px Arial';
-          ctx.fillText('Camera preview would appear here', 70, 150);
-          
-          // Draw scanning line
-          ctx.strokeStyle = '#4CAF50';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(300, y);
-          ctx.stroke();
-          
-          y += direction * 5;
-          if (y >= 300) direction = -1;
-          if (y <= 0) direction = 1;
-          
-          requestAnimationFrame(animate);
-        };
-        
-        animate();
-      }
-    }
-  }, [isScanning]);
   
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -136,17 +94,18 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
           <div className="space-y-4">
             {isScanning ? (
               <div className="relative">
-                <canvas 
-                  ref={videoRef as any} 
-                  width={300} 
-                  height={300} 
-                  className="mx-auto border border-gray-300 rounded-md"
+                <QrReader
+                  constraints={{
+                    facingMode: 'environment' // Use the back camera
+                  }}
+                  onResult={handleScan}
+                  scanDelay={500}
+                  className="w-full aspect-square max-w-xs mx-auto border border-gray-300 rounded-md overflow-hidden"
+                  videoStyle={{ objectFit: 'cover' }}
+                  videoContainerStyle={{ padding: 0 }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-40 h-40 border-2 border-primary"></div>
-                </div>
                 <div className="mt-4 text-center">
-                  <p className="text-sm text-muted-foreground animate-pulse">Scanning...</p>
+                  <Button variant="outline" onClick={() => setIsScanning(false)}>Cancel Scanning</Button>
                 </div>
               </div>
             ) : (
