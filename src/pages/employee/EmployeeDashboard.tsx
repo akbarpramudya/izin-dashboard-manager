@@ -9,7 +9,7 @@ import { CalendarIcon, ClockIcon, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { PermissionForm } from '@/components/ui/permissions/PermissionForm';
-import { PermissionBadge } from '@/components/ui/permissions/PermissionBadge';
+import { PermissionStatusBadge } from '@/components/ui/permissions/PermissionBadge';
 
 // Mock employee stats
 const mockStats: UserStats = {
@@ -84,7 +84,7 @@ const EmployeeDashboard = () => {
     setPermissions(mockPermissions);
   }, []);
 
-  const handleNewPermission = (newPermission: Omit<Permission, 'id' | 'userId' | 'createdAt' | 'status'>) => {
+  const handleNewPermission = (newPermission: Required<Omit<Permission, 'id' | 'userId' | 'createdAt' | 'status'>> & { qrCode?: string }) => {
     const permission: Permission = {
       ...newPermission,
       id: `perm-${permissions.length + 1}`,
@@ -229,7 +229,7 @@ const renderPermissionsList = (permissions: Permission[]) => {
                   <h3 className="text-lg font-semibold">
                     {getPermissionTypeLabel(permission.type as PermissionType)}
                   </h3>
-                  <PermissionBadge status={permission.status} />
+                  <PermissionStatusBadge status={permission.status} />
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">{permission.reason}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">

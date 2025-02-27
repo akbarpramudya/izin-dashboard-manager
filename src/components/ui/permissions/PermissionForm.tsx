@@ -47,7 +47,7 @@ const formSchema = z.object({
 });
 
 interface PermissionFormProps {
-  onSubmit: (data: z.infer<typeof formSchema> & { qrCode: string }) => void;
+  onSubmit: (data: Required<z.infer<typeof formSchema>> & { qrCode?: string }) => void;
 }
 
 export const PermissionForm: React.FC<PermissionFormProps> = ({ onSubmit }) => {
@@ -68,7 +68,16 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({ onSubmit }) => {
       const permissionId = `perm-${Date.now()}`;
       const qrCode = generateQRCode(permissionId);
       
-      onSubmit({ ...values, qrCode });
+      // Ensure all values are required
+      const formattedData = {
+        type: values.type,
+        reason: values.reason,
+        startTime: values.startTime,
+        endTime: values.endTime,
+        qrCode: qrCode,
+      };
+      
+      onSubmit(formattedData);
       
       form.reset();
       

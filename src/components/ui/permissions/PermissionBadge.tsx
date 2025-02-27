@@ -72,3 +72,6 @@ export const PermissionTypeBadge: React.FC<PermissionTypeBadgeProps> = ({ type }
     </div>
   );
 };
+
+// Export the PermissionStatusBadge as PermissionBadge for backward compatibility
+export const PermissionBadge = PermissionStatusBadge;
