@@ -16,22 +16,19 @@ const SecurityScan = () => {
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
   const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
   
-  // Handle QR code scan
-  const handleScan = (data: string) => {
-    setScannedCode(data);
+  // Handle scan complete
+  const handleScanComplete = (permissionId: string, isCheckIn: boolean) => {
+    setScannedCode(permissionId);
     toast({
       title: "QR Code Scanned",
-      description: `Successfully scanned code: ${data}`,
+      description: `Successfully scanned permission: ${permissionId}`,
     });
-  };
-  
-  // Handle scan error
-  const handleError = (err: Error) => {
-    toast({
-      title: "Scan Error",
-      description: err.message,
-      variant: "destructive",
-    });
+    
+    if (isCheckIn) {
+      handleCheckIn();
+    } else {
+      handleCheckOut();
+    }
   };
   
   // Get permission data from scanned code
@@ -84,7 +81,7 @@ const SecurityScan = () => {
           </CardHeader>
           <CardContent>
             {!scannedCode ? (
-              <QRScanner onScan={handleScan} onError={handleError} />
+              <QRScanner onScanComplete={handleScanComplete} />
             ) : (
               <div className="flex justify-center items-center h-64 bg-gray-100 rounded-md">
                 <p className="text-center text-gray-500">Code scanned successfully</p>
