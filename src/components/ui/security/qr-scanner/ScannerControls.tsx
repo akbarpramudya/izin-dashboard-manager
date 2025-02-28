@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Camera } from 'lucide-react';
+import { AlertTriangle, Camera, Smartphone } from 'lucide-react';
 import { isCameraSupported } from './cameraUtils';
 
 interface ScannerControlsProps {
@@ -33,6 +33,7 @@ export const ScannerControls: React.FC<ScannerControlsProps> = ({
   };
   
   const cameraSupported = isCameraSupported();
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   
   return (
     <div className="flex flex-col items-center gap-4">
@@ -59,6 +60,13 @@ export const ScannerControls: React.FC<ScannerControlsProps> = ({
             )}
           </Button>
           
+          {isMobile && (
+            <div className="text-sm text-blue-600 mt-1 mb-2 text-center">
+              <Smartphone className="inline-block mr-1 h-4 w-4" />
+              <span>You may need to grant camera permissions in your device settings</span>
+            </div>
+          )}
+          
           {cameraAttempted && cameraError && (
             <div className="text-sm text-red-500 mt-2 text-center p-4 bg-red-50 border border-red-100 rounded-md w-full">
               <p>{cameraError}</p>
@@ -69,6 +77,16 @@ export const ScannerControls: React.FC<ScannerControlsProps> = ({
               >
                 Try again
               </Button>
+              
+              {(cameraError.includes("denied") || cameraError.includes("permission")) && (
+                <p className="mt-2 text-xs">
+                  Try opening your browser settings and enabling camera access for this site.
+                  <br />
+                  On iOS: Settings → Safari → Camera → Allow
+                  <br />
+                  On Android: Settings → Site Settings → Camera → Allow
+                </p>
+              )}
             </div>
           )}
           

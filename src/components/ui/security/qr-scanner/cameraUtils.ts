@@ -13,12 +13,24 @@ export const checkAvailableCameras = async (): Promise<MediaDeviceInfo[]> => {
   try {
     // First request camera permission before enumerating devices
     // This is crucial for iOS Safari and some Android browsers
-    await requestCameraPermission(null);
+    const hasPermission = await requestCameraPermission(null);
+    
+    if (!hasPermission) {
+      console.warn("Camera permission was not granted");
+      return [];
+    }
     
     // After permission is granted, enumerate devices
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     console.log("Available cameras:", videoDevices);
+    
+    if (videoDevices.length === 0 && isIOSDevice()) {
+      // On iOS, even if permission is granted, devices might not be properly enumerated
+      console.log("No cameras detected but on iOS - will try using environment camera anyway");
+      return [{ kind: 'videoinput', deviceId: 'default', label: 'Default Camera' } as MediaDeviceInfo];
+    }
+    
     return videoDevices;
   } catch (error) {
     console.error("Error accessing camera devices:", error);
@@ -34,18 +46,25 @@ export const requestCameraPermission = async (selectedCamera: string | null): Pr
   }
   
   try {
-    // For mobile browsers, it's better to use simpler constraints
-    const constraints = {
+    console.log("User agent:", navigator.userAgent);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // For mobile browsers, use simpler constraints
+    let constraints: MediaStreamConstraints = {
+      audio: false,
       video: selectedCamera 
         ? { deviceId: { exact: selectedCamera } }
-        : { facingMode: "environment" } // Default to back camera for mobile
+        : (isMobile ? { facingMode: { ideal: "environment" } } : true)
     };
     
     console.log("Requesting camera with constraints:", constraints);
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     
     // Stop the stream immediately - we just needed to request permission
-    stream.getTracks().forEach(track => track.stop());
+    stream.getTracks().forEach(track => {
+      console.log("Stopping track:", track.label);
+      track.stop();
+    });
     
     return true;
   } catch (error) {
@@ -68,6 +87,10 @@ export const getCameraErrorMessage = (error: any): string => {
     errorMessage = "The camera is already in use by another application.";
   } else if (error?.name === "OverconstrainedError") {
     errorMessage = "The requested camera does not meet the required constraints.";
+  } else if (error?.name === "AbortError") {
+    errorMessage = "Camera access was interrupted. Please try again.";
+  } else if (error?.name === "SecurityError") {
+    errorMessage = "Camera access is blocked by your browser's security policy.";
   } else if (error?.message) {
     errorMessage = error.message;
   }
@@ -83,9 +106,18 @@ export const isCameraSupported = (): boolean => {
 // Manually attempt to initialize camera (for browsers that need extra prompting)
 export const initializeCamera = async (): Promise<boolean> => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: "environment" },
-      audio: false
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const constraints: MediaStreamConstraints = {
+      audio: false,
+      video: isMobile ? { facingMode: { ideal: "environment" } } : true
+    };
+    
+    console.log("Initializing camera with constraints:", constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    
+    // Log available tracks
+    stream.getTracks().forEach(track => {
+      console.log("Track initialized:", track.label, "enabled:", track.enabled);
     });
     
     // Stop stream immediately after initializing
@@ -95,4 +127,9 @@ export const initializeCamera = async (): Promise<boolean> => {
     console.error("Failed to initialize camera:", error);
     return false;
   }
+};
+
+// Check if running on iOS
+export const isIOSDevice = (): boolean => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 };
