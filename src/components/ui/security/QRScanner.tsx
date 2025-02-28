@@ -138,8 +138,13 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
             facingMode: 'environment', // Use the back camera
             aspectRatio: 1 // Force a square aspect ratio for better scanning
           }}
-          onResult={handleScan}
-          onError={handleError}
+          onResult={(result, error) => {
+            if (error) {
+              handleError(error);
+              return;
+            }
+            handleScan(result);
+          }}
           scanDelay={500}
           className="w-full aspect-square max-w-xs mx-auto border border-gray-300 rounded-md overflow-hidden"
           videoStyle={{ objectFit: 'cover' }}
