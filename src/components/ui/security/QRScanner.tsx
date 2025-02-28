@@ -10,7 +10,12 @@ import { CameraError } from './qr-scanner/CameraError';
 import { CameraView } from './qr-scanner/CameraView';
 import { PermissionDetails } from './qr-scanner/PermissionDetails';
 import { ScannerControls } from './qr-scanner/ScannerControls';
-import { checkAvailableCameras, requestCameraPermission, getCameraErrorMessage } from './qr-scanner/cameraUtils';
+import { 
+  checkAvailableCameras, 
+  requestCameraPermission, 
+  getCameraErrorMessage,
+  initializeCamera
+} from './qr-scanner/cameraUtils';
 
 interface QRScannerProps {
   onScanComplete: (permissionId: string, isCheckIn: boolean) => void;
@@ -26,28 +31,45 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const { toast } = useToast();
   
+  // Check for available cameras when component mounts
+  useEffect(() => {
+    async function initCameras() {
+      try {
+        // First try to initialize the camera (helps on some mobile browsers)
+        await initializeCamera();
+        
+        // Then check available cameras
+        const cameras = await checkAvailableCameras();
+        console.log("Found cameras:", cameras);
+        setAvailableCameras(cameras);
+        
+        if (cameras.length > 0) {
+          // Find back camera if available (usually better for scanning)
+          const backCamera = cameras.find(
+            camera => camera.label && 
+            (camera.label.toLowerCase().includes('back') || 
+             camera.label.toLowerCase().includes('rear'))
+          );
+          
+          setSelectedCamera(backCamera?.deviceId || cameras[0].deviceId);
+        } else {
+          setCameraError("No cameras detected on your device.");
+        }
+      } catch (error) {
+        console.error("Error initializing cameras:", error);
+        setCameraError(getCameraErrorMessage(error));
+      }
+    }
+    
+    initCameras();
+  }, []);
+  
   // Reset camera error when starting scan
   useEffect(() => {
     if (isScanning) {
       setCameraError(null);
     }
   }, [isScanning]);
-
-  // Check for available cameras when component mounts
-  useEffect(() => {
-    async function initCameras() {
-      const cameras = await checkAvailableCameras();
-      setAvailableCameras(cameras);
-      
-      if (cameras.length > 0) {
-        setSelectedCamera(cameras[0].deviceId);
-      } else {
-        setCameraError("No cameras detected on your device.");
-      }
-    }
-    
-    initCameras();
-  }, []);
   
   // Handle QR code scan result
   const handleScan = (result: any) => {
@@ -91,6 +113,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
   };
   
   const handleError = (error: any) => {
+    // Don't handle "NotFoundException" which is just QR code not found in frame
+    if (error && error.name === "NotFoundException") {
+      return;
+    }
+    
     console.error("QR Scanner Error:", error);
     setCameraAttempted(true);
     
@@ -110,17 +137,22 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
   
   const handleStartScan = async () => {
     try {
+      setCameraError(null);
+      setCameraAttempted(true);
+      
+      // First try to initialize the camera again
+      await initializeCamera();
+      
+      // Then request camera permission specifically
       const hasPermission = await requestCameraPermission(selectedCamera);
       
       if (hasPermission) {
-        setCameraError(null);
         setIsScanning(true);
-        setCameraAttempted(true);
       } else {
-        throw new Error("Camera access is not supported in this browser");
+        throw new Error("Could not access camera. Please check your browser permissions.");
       }
     } catch (error) {
-      console.error("Error when requesting camera permission:", error);
+      console.error("Error when starting camera:", error);
       handleError(error);
     }
   };
@@ -136,14 +168,34 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
     setPermissionData(null);
   };
 
-  const handleRetryScan = () => {
+  const handleRetryScan = async () => {
     setCameraError(null);
     setCameraAttempted(false);
     setIsScanning(false);
+    
+    // Re-check available cameras
+    try {
+      const cameras = await checkAvailableCameras();
+      setAvailableCameras(cameras);
+      
+      if (cameras.length > 0) {
+        setSelectedCamera(cameras[0].deviceId);
+      }
+    } catch (error) {
+      console.error("Error checking cameras on retry:", error);
+    }
   };
   
   const handleCameraChange = (cameraId: string) => {
     setSelectedCamera(cameraId);
+    
+    // If currently scanning, temporarily stop to switch camera
+    if (isScanning) {
+      setIsScanning(false);
+      setTimeout(() => {
+        setIsScanning(true);
+      }, 300);
+    }
   };
   
   const renderScannerContent = () => {
@@ -176,7 +228,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanComplete }) => {
       return (
         <ScannerControls 
           onStartScan={handleStartScan}
-          isDisabled={availableCameras.length === 0}
+          isDisabled={false} // Allow trying even if no cameras detected
           cameraError={cameraError}
           cameraAttempted={cameraAttempted}
           onRetry={handleRetryScan}
